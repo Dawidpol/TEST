@@ -1,20 +1,10 @@
-﻿using SharpGL;
+﻿using Models.Shapes;
+using SharpGL;
 using SharpGL.SceneGraph;
 using SharpGL.SceneGraph.Lights;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Models;
 
 namespace CAD_CAM
 {
@@ -23,110 +13,110 @@ namespace CAD_CAM
     /// </summary>
     public partial class MainWindow : Window
     {
+        const int selectBufferSize = 100;
+        uint[] selectBuffer = new uint[selectBufferSize];
         public MainWindow()
         {
             InitializeComponent();
-            
+
         }
         private void OpenGLControl_OpenGLDraw(object sender, SharpGL.OpenGLEventArgs args)
         {
-            Light light = new Light()
-            {
-                On = true,
-                Name = "light",
-                GLCode = OpenGL.GL_LIGHT0
-            };
-             
-            //  Get the OpenGL instance that's been passed to us.
+           //  Get the OpenGL instance that's been passed to us.
             OpenGL gl = args.OpenGL;
+
+            gl.RenderMode(OpenGL.GL_RENDER);
+            int nhits = 0;
+            if (ApplicationData.Mode == AppMode.Selecting)
+            {
+                gl.RenderMode(OpenGL.GL_SELECT);
+                Display(gl);
+                nhits = gl.RenderMode(OpenGL.GL_RENDER);
+                ApplicationData.Mode = AppMode.Drawing;
+            }
+            else
+            {
+                Display(gl);
+            }
+
+            if(nhits != 0)
+                for (int i = 0, index = 0; i < nhits; i++)
+                {
+                    var nitems = selectBuffer[index++];
+                    var zmin = selectBuffer[index++];
+                    var zmax = selectBuffer[index++];
+
+                    System.Console.WriteLine("Hit # {0} found {1} items on the name stack\n", i, nitems);
+                    System.Console.WriteLine("\tZmin = {0}, Zmax = {1}\n", zmin, zmax);
+
+                    for (int j = 0; j < nitems; j++)
+                    {
+                        var item = selectBuffer[index++];
+
+                        ApplicationData.AllTriangles[(int)item].Color = Color.Red;
+
+                        System.Console.WriteLine("\t{0} Item Name: {1}\n", j, item);
+                    }
+                    
+                }
+
+        }
+
+        public void Display(OpenGL gl)
+        {
+            int[] viewport = new int[4];
+            
+            double dx;
+            double dy;
+            
+            gl.MatrixMode(OpenGL.GL_MODELVIEW);
+            gl.LoadIdentity();
+
+            if (ApplicationData.Mode == AppMode.Selecting)
+            {
+                gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
+                dx = viewport[2];
+                dy = viewport[3];
+
+                gl.PickMatrix(mousePreviousLocation.X, mousePreviousLocation.Y, 5, 5, viewport);
+
+                gl.RenderMode(OpenGL.GL_SELECT);
+            }
+
 
             //  Clear the color and depth buffers.
             gl.Clear(OpenGL.GL_COLOR_BUFFER_BIT | OpenGL.GL_DEPTH_BUFFER_BIT);
 
             //  Reset the modelview matrix.
-            gl.LoadIdentity();
 
             //  Move the geometry into a fairly central position.
-            //gl.Translate(-1.5f, 0.0f, -6.0f);
             gl.Translate(-translateX, translateY, rotatePyramidZ);
+
             //  Draw a pyramid. First, rotate the modelview matrix.
-            //gl.Translate(-translateX, -translateY, -rotatePyramidZ);
             gl.Rotate(rotatePyramidX, 0.0f, -1.0f, 0.0f);
             gl.Rotate(rotatePyramidY, -1.0f, 0.0f, 0.0f);
-            //gl.Scale(rotatePyramidZ, rotatePyramidZ, rotatePyramidZ);
-            /*float distance = 1;      // Straight line distance between the camera and look at point
 
-            // Calculate the camera position using the distance and angles
-            float camX = (float)(distance * -Math.Sin(rotatePyramidX * (Math.PI / 180)) * Math.Cos((rotatePyramidY) * (Math.PI / 180)));
-            float camY = (float)(distance * -Math.Sin((rotatePyramidY) * (Math.PI / 180)));
-            float camZ = (float)(-distance * Math.Cos((rotatePyramidX) * (Math.PI / 180)) * Math.Cos((rotatePyramidY) * (Math.PI / 180)));
+            if (ApplicationData.Mode == AppMode.Selecting)
+            {
+                gl.InitNames();
+                gl.PushName(0xffffffff);
+            }
 
-            // Set the camera position and lookat point
-            gl.LookAt(camX, camY, camZ,   // Camera position
-                      0.0, 0.0, 0.0,    // Look at point
-                      0.0, 1.0, 0.0);   // Up vector*/
-
-            //
-            //  Start drawing triangles.
-            gl.Begin(OpenGL.GL_TRIANGLES);
+            uint i = 0;
+            foreach (var triangle in ApplicationData.AllTriangles)
+            {
+                triangle.Name = i++;
+                triangle.Draw();
+            }
             
-            gl.Color(1.0f, 0.0f, 0.0f);
-            gl.Vertex(0.0f, 1.0f, 0.0f);
-            gl.Color(0.0f, 1.0f, 0.0f);
-            gl.Vertex(-1.0f, -1.0f, 1.0f);
-            gl.Color(0.0f, 0.0f, 1.0f);
-            gl.Vertex(1.0f, -1.0f, 1.0f);
-            
-            gl.Color(1.0f, 0.0f, 0.0f);
-            gl.Vertex(0.0f, 1.0f, 0.0f);
-            gl.Color(0.0f, 0.0f, 1.0f);
-            gl.Vertex(1.0f, -1.0f, 1.0f);
-            gl.Color(0.0f, 1.0f, 0.0f);
-            gl.Vertex(1.0f, -1.0f, -1.0f);
-
-            gl.Color(1.0f, 0.0f, 0.0f);
-            gl.Vertex(0.0f, 1.0f, 0.0f);
-            gl.Color(0.0f, 1.0f, 0.0f);
-            gl.Vertex(1.0f, -1.0f, -1.0f);
-            gl.Color(0.0f, 0.0f, 1.0f);
-            gl.Vertex(-1.0f, -1.0f, -1.0f);
-
-            gl.Color(1.0f, 0.0f, 0.0f);
-            gl.Vertex(0.0f, 1.0f, 0.0f);
-            gl.Color(0.0f, 0.0f, 1.0f);
-            gl.Vertex(-1.0f, -1.0f, -1.0f);
-            gl.Color(0.0f, 1.0f, 0.0f);
-            gl.Vertex(-1.0f, -1.0f, 1.0f);
-            
-            gl.End();
-
-
-            gl.LoadIdentity();
-            gl.Translate(0.0f, 2.0f, 0.0f);
-            gl.Translate(-translateX, translateY, rotatePyramidZ);
-            gl.Begin(OpenGL.GL_TRIANGLES);
-
-            gl.Color(1.0f, 0.8f, 0.8f);
-
-            gl.Vertex(0.0f, 0.5f, 0.0f);
-            gl.Vertex(-0.5f, -0.5f, 0.5f);
-            gl.Vertex(0.0f, -0.5f, -0.5f);
-
-            gl.Vertex(0.0f, 0.5f, 0.0f);
-            gl.Vertex(0.0f, -0.5f, -0.5f);
-            gl.Vertex(0.5f, -0.5f, 0.0f);
-
-
-            gl.End();
-
         }
 
         private void OpenGLControl_OpenGLInitialized(object sender, OpenGLEventArgs args)
         {
             //  Enable the OpenGL depth testing functionality.
             var GL = args.OpenGL;
-            
-        
+
+
             float[] mat_specular = { 1.0f, 1.0f, 1.0f, 1.0f };
             float[] mat_shininess = { 50.0f };
             float[] light_position = { 0.0f, 2.0f, 0.0f, 0.0f };
@@ -145,6 +135,27 @@ namespace CAD_CAM
             GL.Enable(OpenGL.GL_DEPTH_TEST);
             GL.Enable(OpenGL.GL_COLOR_MATERIAL);
             GL.Enable(OpenGL.GL_CULL_FACE);
+
+            GL.SelectBuffer(selectBufferSize, selectBuffer);
+
+
+            var bottom = new Rectangle(
+                new Vertex(-1.0f, -1.0f, 1.0f),
+                new Vertex(-1.0f, -1.0f, -1.0f),
+                new Vertex(1.0f, -1.0f, 1.0f),
+                new Vertex(1.0f, -1.0f, -1.0f),
+                null,
+                null
+                );
+
+            Pyramide pyramide = new Pyramide(
+                bottom,
+                new Vertex(0.0f, 1.0f, 0.0f),
+                new Color(200, 100, 50, 255),
+                GL
+                );
+
+            //pyramide.Draw();
         }
 
         float rotatePyramidX = 0;
@@ -211,7 +222,7 @@ namespace CAD_CAM
             isRightButtonDown = false;
         }
 
-        Point mousePreviousLocation = new Point(0,0);
+        Point mousePreviousLocation = new Point(0, 0);
 
         private void OpenGLControl_MouseMove(object sender, MouseEventArgs e)
         {
@@ -222,7 +233,7 @@ namespace CAD_CAM
             if (isLeftButtonDown)
             {
                 rotatePyramidX += deltaX;
-                rotatePyramidY += deltaY; 
+                rotatePyramidY += deltaY;
             }
 
             if (isRightButtonDown)
@@ -234,6 +245,14 @@ namespace CAD_CAM
             mousePreviousLocation = mousePosition;
         }
 
-        
+        private void Select_Click(object sender, RoutedEventArgs e)
+        {
+            ApplicationData.Mode = ApplicationData.Mode == AppMode.Selecting ? AppMode.Drawing : AppMode.Selecting;
+        }
+
+        private void OpenGLControl_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            ApplicationData.Mode = ApplicationData.Mode == AppMode.Selecting ? AppMode.Drawing : AppMode.Selecting;
+        }
     }
 }
