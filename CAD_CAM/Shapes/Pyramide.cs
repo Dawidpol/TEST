@@ -117,8 +117,8 @@ namespace Models.Shapes
 
             triangles[2] = new Triangle(
                 Bottom.Vertex_1,
-                Bottom.Vertex_2,
                 Top,
+                Bottom.Vertex_2,
                 Color,
                 OpenGL
                 );
